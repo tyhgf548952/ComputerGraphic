@@ -1,0 +1,77 @@
+void Application::Dither_Random()
+{
+	unsigned char *rgb = this->To_RGB();
+	const int height = img_height, width = img_width;
+	int count = 0;
+	float bright = 0;
+	unsigned char white = 0, black = 0;
+	unsigned char *histogram = new unsigned char[height*width];
+	srand(time(NULL));
+	for (int i = 0; i < img_height; i++)
+	{
+		for (int j = 0; j < img_width; j++)
+		{
+			int offset_rgb = i*img_width * 3 + j * 3;
+			int offset_rgba = i*img_width * 4 + j * 4;
+			unsigned char gray = 0.3 * rgb[offset_rgb + rr] + 0.59 * rgb[offset_rgb + gg] + 0.11 * rgb[offset_rgb + bb];
+			histogram[count++] = gray;
+			if (gray > white)
+				white = gray;
+			if (gray < black)
+				black = gray;
+			bright += gray;
+
+			for (int k = 0; k < 3; k++)
+				img_data[offset_rgba + k] = gray;
+			img_data[offset_rgba + aa] = WHITE;
+		}
+	}
+	QuickSort(histogram, 0, width*height);
+	float average = (bright - float(black)*count) / float(white - black) / float(count);	//找出average intensity
+	float acc = (1 - average)*height*width;		//找出threshold的index
+	srand(time(NULL));
+
+	for (int i = 0; i < img_height; i++)
+	{
+		for (int j = 0; j < img_width; j++)
+		{
+			int offset_rgb = i*img_width * 3 + j * 3;
+			int offset_rgba = i*img_width * 4 + j * 4;
+			float max = 0.2, min = -0.2;
+			float randNum = ((max - min) * rand() / (RAND_MAX + 1.0) + min)*float(white - black);
+	
+			if (float(img_data[offset_rgba]) + randNum < 0)
+			{
+				for (int k = 0; k < 3; k++)
+					img_data[offset_rgba + k] = 0;
+			}
+			else
+			{
+				for (int k = 0; k < 3; k++)
+					img_data[offset_rgba + k] += randNum;
+			}
+		}
+	}
+	for (int i = 0; i < img_height; i++)
+	{
+		for (int j = 0; j < img_width; j++)
+		{
+			int offset_rgb = i*img_width * 3 + j * 3;
+			int offset_rgba = i*img_width * 4 + j * 4;
+			
+			if (float(img_data[offset_rgba]) > float(histogram[int(acc)]))
+			{
+				for (int k = 0; k < 3; k++)
+					img_data[offset_rgba + k] = white;
+			}
+			else
+			{
+				for (int k = 0; k < 3; k++)
+					img_data[offset_rgba + k] = black;
+			}
+		}
+	}
+	delete[] rgb;
+	mImageDst = QImage(img_data, img_width, img_height, QImage::Format_ARGB32 );
+	renew();
+}
